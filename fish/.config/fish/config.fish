@@ -103,10 +103,6 @@ alias cd.5="cd ../../../../.."
 
 alias hm="cd ~"
 
-# Shutdown now
-alias shut='sudo shutdown now'
-alias reboot='sudo reboot now'
-
 # grep
 alias grep="rg"
 alias egrep="eg -E"
@@ -115,23 +111,23 @@ alias fgrep="rg -F"
 ## Listing stuff ##
 
 # Normal listing
-alias l="eza -F --icons --group-directories-first"
-alias ls="eza -F --icons --group-directories-first"
+#alias l="eza -F --icons --group-directories-first"
+#alias ls="eza -F --icons --group-directories-first"
 
 # All listing (show stuff hidden)
-alias la="eza -aF --icons --group-directories-first"
+#alias la="eza -aF --icons --group-directories-first"
 
 # Long listing
-alias ll="eza -lhF --icons --group-directories-first"
+alias ll="eza -lahF --icons --group-directories-first"
 
 # Rescursive listing
-alias lr="eza -RF --icons --group-directories-first"
+#alias lr="eza -RF --icons --group-directories-first"
 
 # Tree listing
-alias lt="eza -TF --icons --group-directories-first"
+#alias lt="eza -TF --icons --group-directories-first"
 
 # Directory listing
-alias ls="eza -DF --icons --group-directories-first" #-F displays type indicator by file names
+#alias ls="eza -DF --icons --group-directories-first" #-F displays type indicator by file names
 
 
 # Confirm before overwriting files and make it verbose
@@ -173,6 +169,28 @@ set -x OPEN_DYLAN_HOME $DYLAN/opendylan-2024.1
 #PATH configuration#
 set -x PATH $PATH ~/Bin $OPEN_DYLAN_HOME/bin
 
+## THEMING ##
+
+fish_config theme choose "Dracula Official"
 
 # default umask #
 umask 027
+
+set -x LIBVIRT_DEFAULT_URI 'qemu:///system'
+
+
+
+
+alias vu='vagrant up --provision'
+alias vh='vagrant halt'
+alias vr='vagrant reload --provision'
+alias vs='vagrant ssh'
+alias vd='vagrant destroy -f'
+alias vp='vagrant provision'
+
+
+alias 'vpnon'='wg-quick up wg0'
+alias 'vpnoff'='wg-quick down wg0'
+
+
+alias 'kali'='docker run -it --rm -v /home/adrian/desktop/VSCode/bowwe-security:/bowwe-security kalilinux/kali-rolling /bin/bash'

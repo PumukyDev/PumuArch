@@ -1,5 +1,5 @@
 [user]
-	email =155849297+PumukyDev@users.noreply.github.com
+	email = adrian.bertosgomez@gmail.com
 	name = PumukyDev
 [push]
 	default = simple
@@ -9,5 +9,6 @@
 	templatedir = ~/dotfiles/git/.gitmessage
 	defaultBranch = main
 [commit]
+	template = /home/adrian/.gitmessage
 [alias]
         hist = log --pretty=format:'%C(yellow)[%ad]%C(reset) %C(green)[%h]%C(reset) | %C(red)%s %C(bold red){{%an}}%C(reset) %C(blue)%d%C(reset)' --graph --date=short	

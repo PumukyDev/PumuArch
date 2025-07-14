@@ -1,0 +1,32 @@
+{
+    "editor.fontLigatures": true,
+    "editor.fontFamily": "'FiraCode Nerd Font', monospace",
+    "editor.fontSize": 16,
+    "editor.linkedEditing": true,
+    "editor.guides.bracketPairs": true,
+    "breadcrumbs.enabled": false,
+    "editor.cursorBlinking": "smooth",
+    "editor.cursorSmoothCaretAnimation": "on",
+    "explorer.compactFolders": false,
+    "terminal.integrated.cursorStyle": "line",
+    "workbench.iconTheme": "material-icon-theme",
+    "editor.stickyScroll.enabled": false,
+    "editor.minimap.enabled": false,
+    "git.openRepositoryInParentFolders": "never",
+    "explorer.confirmDelete": false,
+    "explorer.confirmDragAndDrop": false,
+    "editor.renderWhitespace": "trailing",
+    "php.validate.executablePath": "/usr/lib/php",
+    "liveServer.settings.useWebExt": true,
+    "[markdown]": {
+        "diffEditor.ignoreTrimWhitespace": true
+    },
+    "security.workspace.trust.untrustedFiles": "open",
+    "liveServer.settings.donotShowInfoMsg": true,
+    "diffEditor.hideUnchangedRegions.enabled": true,
+    "svg.preview.mode": "img",
+    "workbench.editorAssociations": {
+        "*.epub": "default"
+    },
+    "files.autoSave": "afterDelay"
+}

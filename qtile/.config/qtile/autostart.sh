@@ -48,4 +48,7 @@ else
     done <<< "$connected_outputs"
 fi
 
+
+~/.config/qtile/scripts/save_interface.sh &
+
 ~/.fehbg &

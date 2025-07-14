@@ -21,7 +21,7 @@ layouts = [
 ]
 
 widget_defaults = dict(
-    font="Hack Regular", # change to helvetica #
+    font="Helvetica", # change to helvetica # # Antes font="Hack Regular" #
     fontsize=12,
     padding=3,
 )

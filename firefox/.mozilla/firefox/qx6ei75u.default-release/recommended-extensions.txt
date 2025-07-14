@@ -1,0 +1,21 @@
+Essential Extensions
+--------------------
+- uBlock Origin
+- Dark Reader
+- ShortKeys
+
+
+Recommended Extensions
+----------------------
+- Offline QR Code Generator
+- Nimbus Screen Capture
+- Return Youtube Dislike
+
+
+Other Extensions
+----------------
+- FoxyProxy
+- Search by Image
+- Teleparty
+- Wappalyzer
+

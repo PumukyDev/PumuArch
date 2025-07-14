@@ -28,7 +28,6 @@ from settings.mouse import mouse
 
 
 
-
 dgroups_key_binder = None
 dgroups_app_rules = []  # type: list
 follow_mouse_focus = True
@@ -41,6 +40,10 @@ reconfigure_screens = True
 auto_minimize = True
 wl_input_rules = None
 wmname = "LG3D"
+
+
+
+
 
 @hook.subscribe.startup_once
 def autostart():

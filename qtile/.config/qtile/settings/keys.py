@@ -4,7 +4,7 @@ from libqtile.lazy import lazy
 
 mod = "mod4"
 
-screenshot_command = "sh -c 'scrot --select --line mode=edge /tmp/screenshot.png && xclip -selection clipboard -t image/png -i /tmp/screenshot.png && echo /tmp/screenshot.png >> /home/Adrian/.cache/greenclip.history'"
+screenshot_command = "sh -c 'scrot --select --line mode=edge /tmp/screenshot.png && xclip -selection clipboard -t image/png -i /tmp/screenshot.png && echo /tmp/screenshot.png >> /home/adrian/.cache/greenclip.history'"
 #borrar_foto = "mv /tmp/screenshot.png /tmp/screeshot_antigua.png"
 borrar_foto = "rm -f /tmp/screenshot.png"
 
@@ -48,6 +48,12 @@ keys = [
     Key([], "XF86AudioRaiseVolume", lazy.spawn("pamixer --increase 2")),
     Key([], "XF86AudioMute", lazy.spawn("pamixer --toggle-mute")),
 
+
+    # Teclas de brillo
+    Key([], "XF86MonBrightnessUp", lazy.spawn("xbacklight -inc 10")),
+    Key([], "XF86MonBrightnessDown", lazy.spawn("xbacklight -dec 10")),
+
+
     #Lanzar aplicaciones
     Key([mod], "Return", lazy.spawn("kitty"), desc="Launch terminal"),
     Key([mod], "f", lazy.spawn("firefox"), desc="Launch Firefox"),
@@ -56,7 +62,7 @@ keys = [
     Key([mod], "v", lazy.spawn("virtualbox"), desc="Launch VirtualBox"),
     Key([mod], "s", lazy.spawn("steam"), desc="Launch Steam"),
     Key([mod], "t", lazy.spawn("tor-browser"), desc="Launch Tor"),
-    Key([mod], "b", lazy.spawn("brave"), desc="Launch Tor"),
+    Key([mod], "b", lazy.spawn("gnome-boxes"), desc="Launch Tor"),
     Key([mod], "a", lazy.spawn("azure"), desc="Launch Azure"),
     Key([mod], "d", lazy.spawn("discord"), desc="Launch Azure"),
     Key([mod], "p", lazy.spawn("Screeshot"), desc="Launch Azure"),
@@ -68,8 +74,9 @@ keys = [
     Key([], "Print", lazy.spawn("scrot /home/Adrian/Screenshots/%d-%m-%Y-%T-screenshot.png")),
     Key([mod, "shift"], "Print", lazy.spawn("scrot --focused --border /home/Adrian/Screenshots/%d-%m-%Y-%T-screenshot.png")), 
     Key([mod], "g", lazy.spawn("rofi -modi 'clipboard:greenclip print' -show clipboard -run-command '{cmd}'"), desc="Launch rofi"),
-    Key([mod, "shift"], "s", lazy.spawn("/home/Adrian/.config/qtile/scripts/captura_pantalla.sh")),
+    Key([mod, "shift"], "s", lazy.spawn("/home/adrian/.config/qtile/scripts/captura_pantalla.sh")),
  
+    Key([mod, "shift"], "l", lazy.spawn("flameshot gui")),
  
     #Lanzar popup grupos de trabajo
     #Key([mod], "Tab", lazy.function(show_graphs)),
