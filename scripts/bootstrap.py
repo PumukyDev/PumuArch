@@ -84,6 +84,16 @@ def main():
         if not match or tuple(map(int, match.groups())) < (3, 3):
             print('MISSING  tmux >= 3.3 is required by the preserved configuration')
             missing.append({'name': 'tmux version'})
+            if family:
+                packages.add('tmux')
+    if profile != 'server' and shutil.which('kitty'):
+        version = subprocess.check_output(['kitty', '--version'], text=True)
+        match = re.search(r'(\d+)\.(\d+)', version)
+        if not match or tuple(map(int, match.groups())) < (0, 43):
+            print('MISSING  Kitty >= 0.43 is required for the preserved scrollbar setting; use a supported package or the official Kitty release')
+            missing.append({'name': 'Kitty version'})
+            if family:
+                packages.add('kitty')
     print(f'Profile: {profile}; distribution: {distro["ID"]}; package family: {family or "manual"}')
     if args.install and packages:
         privilege = [] if os.geteuid() == 0 else ['sudo']

@@ -4,6 +4,8 @@
 
 Use Linux, Git, Bash, Python 3 and tmux **3.3 or newer**. chezmoi 2.73.0 or newer is required; 2.73.0 was used for the migration. Package managers are preferred; for example, on Arch use `sudo pacman -Syu --needed chezmoi git tmux python`. Check package availability on Debian/Kali rather than assuming that every release contains chezmoi or Starship.
 
+Desktop profiles require Kitty **0.43 or newer** for the original scrollbar setting; bootstrap checks this version as well as tmux. Older distribution packages need a supported upgrade before applying the desktop configuration. [Kitty's official changelog](https://sw.kovidgoyal.net/kitty/changelog/) identifies the scrollbar's introduction in 0.43. A package installation may still leave an old version when a distribution lacks a suitable upgrade; bootstrap continues to report that limitation rather than declaring it compatible.
+
 When a distribution lacks chezmoi, clone the same repository locally and use the explicit installer:
 
 ```bash
