@@ -1,0 +1,467 @@
+[
+  {
+    "name": "chezmoi",
+    "group": "cli",
+    "commands": [
+      "chezmoi"
+    ],
+    "arch": "chezmoi",
+    "apt": "chezmoi"
+  },
+  {
+    "name": "Bash",
+    "group": "cli",
+    "commands": [
+      "bash"
+    ],
+    "arch": "bash",
+    "apt": "bash"
+  },
+  {
+    "name": "Git",
+    "group": "cli",
+    "commands": [
+      "git"
+    ],
+    "arch": "git",
+    "apt": "git"
+  },
+  {
+    "name": "tmux",
+    "group": "cli",
+    "commands": [
+      "tmux"
+    ],
+    "arch": "tmux",
+    "apt": "tmux"
+  },
+  {
+    "name": "Python",
+    "group": "cli",
+    "commands": [
+      "python3"
+    ],
+    "arch": "python",
+    "apt": "python3"
+  },
+  {
+    "name": "OpenSSH",
+    "group": "cli",
+    "commands": [
+      "ssh"
+    ],
+    "arch": "openssh",
+    "apt": "openssh-client"
+  },
+  {
+    "name": "Starship",
+    "group": "cli",
+    "commands": [
+      "starship"
+    ],
+    "arch": "starship",
+    "optional": true,
+    "instructions": "see the verified official release procedure in docs/install.md"
+  },
+  {
+    "name": "Neovim",
+    "group": "cli",
+    "commands": [
+      "nvim"
+    ],
+    "arch": "neovim",
+    "apt": "neovim",
+    "optional": true
+  },
+  {
+    "name": "ripgrep",
+    "group": "cli",
+    "commands": [
+      "rg"
+    ],
+    "arch": "ripgrep",
+    "apt": "ripgrep",
+    "optional": true
+  },
+  {
+    "name": "fd",
+    "group": "cli",
+    "commands": [
+      "fd",
+      "fdfind"
+    ],
+    "arch": "fd",
+    "apt": "fd-find",
+    "optional": true
+  },
+  {
+    "name": "fzf",
+    "group": "cli",
+    "commands": [
+      "fzf"
+    ],
+    "arch": "fzf",
+    "apt": "fzf",
+    "optional": true
+  },
+  {
+    "name": "btop",
+    "group": "cli",
+    "commands": [
+      "btop"
+    ],
+    "arch": "btop",
+    "apt": "btop",
+    "optional": true
+  },
+  {
+    "name": "Sway",
+    "group": "desktop",
+    "commands": [
+      "sway"
+    ],
+    "arch": "sway",
+    "apt": "sway"
+  },
+  {
+    "name": "Sway IPC",
+    "group": "desktop",
+    "commands": [
+      "swaymsg"
+    ],
+    "arch": "sway",
+    "apt": "sway"
+  },
+  {
+    "name": "Sway wallpaper",
+    "group": "desktop",
+    "commands": [
+      "swaybg"
+    ],
+    "arch": "swaybg",
+    "apt": "swaybg"
+  },
+  {
+    "name": "Kitty",
+    "group": "desktop",
+    "commands": [
+      "kitty"
+    ],
+    "arch": "kitty",
+    "apt": "kitty"
+  },
+  {
+    "name": "DMS",
+    "group": "desktop",
+    "commands": [
+      "dms"
+    ],
+    "arch": "dms-shell",
+    "instructions": "install DMS from the official Debian instructions linked in docs/install.md; do not add Debian repositories blindly to Kali"
+  },
+  {
+    "name": "Quickshell",
+    "group": "desktop",
+    "commands": [
+      "qs"
+    ],
+    "arch": "quickshell",
+    "apt": "quickshell"
+  },
+  {
+    "name": "DMS telemetry",
+    "group": "desktop",
+    "commands": [
+      "dgop"
+    ],
+    "arch": "dgop",
+    "instructions": "DMS companion dgop: see official DMS documentation"
+  },
+  {
+    "name": "Wayland clipboard",
+    "group": "desktop",
+    "commands": [
+      "wl-copy"
+    ],
+    "arch": "wl-clipboard",
+    "apt": "wl-clipboard"
+  },
+  {
+    "name": "DMS clipboard history",
+    "group": "desktop",
+    "commands": [
+      "cliphist"
+    ],
+    "arch": "cliphist",
+    "apt": "cliphist"
+  },
+  {
+    "name": "Firefox",
+    "group": "desktop",
+    "commands": [
+      "firefox",
+      "firefox-esr"
+    ],
+    "arch": "firefox",
+    "apt": "firefox-esr"
+  },
+  {
+    "name": "Flameshot",
+    "group": "desktop",
+    "commands": [
+      "flameshot"
+    ],
+    "apt": "flameshot",
+    "instructions": "Arch must keep the existing patched flameshot-native-sway package"
+  },
+  {
+    "name": "grim",
+    "group": "desktop",
+    "commands": [
+      "grim"
+    ],
+    "arch": "grim",
+    "apt": "grim"
+  },
+  {
+    "name": "playerctl",
+    "group": "desktop",
+    "commands": [
+      "playerctl"
+    ],
+    "arch": "playerctl",
+    "apt": "playerctl"
+  },
+  {
+    "name": "PulseAudio client",
+    "group": "desktop",
+    "commands": [
+      "pactl"
+    ],
+    "arch": "libpulse",
+    "apt": "pulseaudio-utils"
+  },
+  {
+    "name": "PipeWire",
+    "group": "desktop",
+    "commands": [
+      "pipewire"
+    ],
+    "arch": "pipewire pipewire-pulse",
+    "apt": "pipewire pipewire-pulse"
+  },
+  {
+    "name": "WirePlumber",
+    "group": "desktop",
+    "commands": [
+      "wpctl"
+    ],
+    "arch": "wireplumber",
+    "apt": "wireplumber"
+  },
+  {
+    "name": "DBus environment",
+    "group": "desktop",
+    "commands": [
+      "dbus-update-activation-environment"
+    ],
+    "arch": "dbus",
+    "apt": "dbus-user-session dbus-bin"
+  },
+  {
+    "name": "Wayland screen portal",
+    "group": "desktop",
+    "commands": [
+      "/usr/lib/xdg-desktop-portal-wlr",
+      "/usr/libexec/xdg-desktop-portal-wlr"
+    ],
+    "arch": "xdg-desktop-portal-wlr xdg-desktop-portal-gtk",
+    "apt": "xdg-desktop-portal-wlr xdg-desktop-portal-gtk"
+  },
+  {
+    "name": "FiraCode Nerd Font Mono",
+    "group": "desktop",
+    "font": "FiraCode Nerd Font Mono",
+    "arch": "ttf-firacode-nerd",
+    "instructions": "install the verified FiraCode Nerd Fonts release described in docs/install.md"
+  },
+  {
+    "name": "Adwaita icons",
+    "group": "desktop",
+    "arch": "adwaita-icon-theme",
+    "apt": "adwaita-icon-theme",
+    "files": [
+      "/usr/share/icons/Adwaita/index.theme"
+    ]
+  },
+  {
+    "name": "Material Symbols",
+    "group": "desktop",
+    "font": "Material Symbols Rounded",
+    "arch": "ttf-material-symbols-variable",
+    "instructions": "use the font setup from official DMS documentation"
+  },
+  {
+    "name": "Thunar",
+    "group": "desktop",
+    "commands": [
+      "thunar"
+    ],
+    "arch": "thunar",
+    "apt": "thunar",
+    "optional": true
+  },
+  {
+    "name": "Discord",
+    "group": "desktop",
+    "commands": [
+      "discord"
+    ],
+    "arch": "discord",
+    "optional": true,
+    "instructions": "optional upstream application; Super+d requires its executable"
+  },
+  {
+    "name": "Obsidian",
+    "group": "desktop",
+    "commands": [
+      "obsidian"
+    ],
+    "arch": "obsidian",
+    "optional": true,
+    "instructions": "optional upstream application; Super+o requires its executable"
+  },
+  {
+    "name": "VS Code",
+    "group": "desktop",
+    "commands": [
+      "code"
+    ],
+    "optional": true,
+    "instructions": "optional upstream application; Super+c requires its executable"
+  },
+  {
+    "name": "SPICE viewer",
+    "group": "desktop",
+    "commands": [
+      "remote-viewer"
+    ],
+    "arch": "virt-viewer",
+    "apt": "virt-viewer",
+    "optional": true
+  },
+  {
+    "name": "SPICE guest agent",
+    "group": "desktop",
+    "commands": [
+      "spice-vdagent"
+    ],
+    "apt": "spice-vdagent",
+    "optional": true,
+    "instructions": "optional Kali guest dependency; X11 clipboard integration does not imply native Sway clipboard support"
+  },
+  {
+    "name": "matugen",
+    "group": "desktop",
+    "commands": [
+      "matugen"
+    ],
+    "arch": "matugen",
+    "optional": true,
+    "instructions": "optional DMS palette generation"
+  },
+  {
+    "name": "brightnessctl",
+    "group": "hardware",
+    "commands": [
+      "brightnessctl"
+    ],
+    "arch": "brightnessctl"
+  },
+  {
+    "name": "shikane",
+    "group": "hardware",
+    "commands": [
+      "shikane"
+    ],
+    "arch": "shikane"
+  },
+  {
+    "name": "shikanectl",
+    "group": "hardware",
+    "commands": [
+      "shikanectl"
+    ],
+    "arch": "shikane"
+  },
+  {
+    "name": "wdisplays",
+    "group": "hardware",
+    "commands": [
+      "wdisplays"
+    ],
+    "arch": "wdisplays"
+  },
+  {
+    "name": "Foot display helper",
+    "group": "hardware",
+    "commands": [
+      "foot"
+    ],
+    "arch": "foot"
+  },
+  {
+    "name": "Waypaper",
+    "group": "hardware",
+    "commands": [
+      "waypaper"
+    ],
+    "arch": "waypaper"
+  },
+  {
+    "name": "mpvpaper",
+    "group": "hardware",
+    "commands": [
+      "mpvpaper"
+    ],
+    "instructions": "locally built upstream GhostNaN/mpvpaper; preserve the installed executable"
+  },
+  {
+    "name": "ffmpeg",
+    "group": "hardware",
+    "commands": [
+      "ffmpeg"
+    ],
+    "arch": "ffmpeg"
+  },
+  {
+    "name": "PyQt6",
+    "group": "hardware",
+    "module": "PyQt6",
+    "arch": "python-pyqt6"
+  },
+  {
+    "name": "UPower monitor",
+    "group": "hardware",
+    "commands": [
+      "gdbus"
+    ],
+    "arch": "glib2 upower"
+  },
+  {
+    "name": "Power profiles",
+    "group": "hardware",
+    "commands": [
+      "powerprofilesctl"
+    ],
+    "arch": "power-profiles-daemon"
+  },
+  {
+    "name": "Desktop notifications",
+    "group": "hardware",
+    "commands": [
+      "notify-send"
+    ],
+    "arch": "libnotify"
+  }
+]

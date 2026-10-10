@@ -1,0 +1,11 @@
+#
+# ~/.bash_profile
+#
+
+# Keep user-installed commands available after a login or over SSH.
+case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+
+[[ -f ~/.bashrc ]] && . ~/.bashrc

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/shikane"
+config_file="$config_dir/config.toml"
+
+if (( $# != 1 )); then
+    echo "Usage: save-display-profile NAME" >&2
+    exit 2
+fi
+
+profile_name=$1
+if [[ ! $profile_name =~ ^[[:alnum:]_.-]+$ ]]; then
+    echo "The name may contain only letters, numbers, dots, hyphens, and underscores." >&2
+    exit 2
+fi
+
+mkdir -p "$config_dir"
+touch "$config_file"
+exec 9>"$config_dir/config.lock"
+flock 9
+
+if grep -Eq "^[[:space:]]*name[[:space:]]*=[[:space:]]*\"${profile_name}\"[[:space:]]*$" "$config_file"; then
+    echo "A profile named '$profile_name' already exists." >&2
+    exit 1
+fi
+
+export_file=$(mktemp --tmpdir="$config_dir" export.XXXXXX)
+combined_file=$(mktemp --tmpdir="$config_dir" config.XXXXXX)
+cleanup() {
+    rm -f "$export_file" "$combined_file"
+}
+trap cleanup EXIT
+
+shikanectl export "$profile_name" >"$export_file"
+if ! grep -q '^\[\[profile\]\]$' "$export_file"; then
+    echo "shikanectl did not generate a valid profile." >&2
+    exit 1
+fi
+
+cp "$config_file" "$combined_file"
+printf '\n' >>"$combined_file"
+sed '/^[[:space:]]*exec[[:space:]]*=/d' "$export_file" >>"$combined_file"
+chmod 0644 "$combined_file"
+mv "$combined_file" "$config_file"
+shikanectl reload
+
+echo "Profile '$profile_name' saved and enabled for future connections."

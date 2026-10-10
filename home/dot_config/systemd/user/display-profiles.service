@@ -1,0 +1,19 @@
+[Unit]
+Description=Apply display profiles automatically with shikane
+Documentation=man:shikane(1) man:shikane(5)
+PartOf=sway-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/shikane
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+PrivateDevices=yes
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=%h/.config/shikane %t
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=sway-session.target

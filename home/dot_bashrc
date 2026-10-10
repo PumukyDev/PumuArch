@@ -1,0 +1,32 @@
+#
+# ~/.bashrc
+#
+
+# If not running interactively, don't do anything
+[[ $- != *i* ]] && return
+
+# User tools must also be available in non-login tmux shells.
+case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+
+alias ls='ls --color=auto'
+alias grep='grep --color=auto'
+# Fallback prompt used until Starship initializes below.
+PS1='[\u@\h \W]\$ '
+
+# Load Kitty shell integration explicitly so it remains active inside tmux.
+if [[ -n ${KITTY_INSTALLATION_DIR:-} && -r ${KITTY_INSTALLATION_DIR}/shell-integration/bash/kitty.bash ]]; then
+    export KITTY_SHELL_INTEGRATION=enabled
+    source "${KITTY_INSTALLATION_DIR}/shell-integration/bash/kitty.bash"
+fi
+
+# Keep Starship last so it can compose with other shell integrations.
+if command -v starship >/dev/null 2>&1; then
+    eval "$(starship init bash)"
+fi
+
+# Optional per-host aliases and private shell settings.
+[[ -r ~/.config/bash/local.bash ]] && source ~/.config/bash/local.bash
+:

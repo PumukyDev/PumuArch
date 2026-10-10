@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly apply_command="${HOME}/.local/bin/internal-display-refresh-rate"
+readonly upower_service="org.freedesktop.UPower"
+readonly upower_ac_object="/org/freedesktop/UPower/devices/line_power_ACAD"
+
+power_monitor_pid=""
+output_monitor_pid=""
+
+cleanup() {
+    local pid
+    for pid in "${power_monitor_pid}" "${output_monitor_pid}"; do
+        if [[ "${pid}" =~ ^[0-9]+$ ]] && kill -0 "${pid}" 2>/dev/null; then
+            kill "${pid}" 2>/dev/null || true
+        fi
+    done
+    wait 2>/dev/null || true
+}
+
+handle_termination() {
+    trap - EXIT INT TERM
+    cleanup
+    exit 0
+}
+
+apply_with_retry() {
+    local delay
+    for delay in 0 0.25 1; do
+        if [[ "${delay}" != 0 ]]; then
+            sleep "${delay}"
+        fi
+        if "${apply_command}"; then
+            return 0
+        fi
+    done
+    printf 'Failed to apply advertised display refresh rates after retries\n' >&2
+    return 1
+}
+
+monitor_power_source() {
+    gdbus monitor --system \
+        --dest "${upower_service}" \
+        --object-path "${upower_ac_object}" \
+        | while IFS= read -r event; do
+            if [[ "${event}" == *"PropertiesChanged"* ]]; then
+                printf 'Detected a UPower AC property change\n'
+                apply_with_retry || true
+            fi
+        done
+}
+
+monitor_output_changes() {
+    swaymsg -m -t subscribe '["output"]' \
+        | while IFS= read -r event; do
+            if [[ "${event}" == *'"change"'* ]]; then
+                sleep 0.25
+                apply_with_retry || true
+            fi
+        done
+}
+
+trap cleanup EXIT
+trap handle_termination INT TERM
+
+apply_with_retry
+
+monitor_power_source &
+power_monitor_pid=$!
+monitor_output_changes &
+output_monitor_pid=$!
+
+if wait -n "${power_monitor_pid}" "${output_monitor_pid}"; then
+    printf 'A refresh-rate event monitor exited unexpectedly\n' >&2
+    exit 1
+else
+    monitor_status=$?
+    printf 'A refresh-rate event monitor failed with status %d\n' "${monitor_status}" >&2
+    exit "${monitor_status}"
+fi

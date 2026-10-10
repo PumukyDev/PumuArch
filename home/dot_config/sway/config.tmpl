@@ -1,0 +1,7 @@
+# Shared desktop modules, then one profile and optional private host overrides.
+include ~/.config/sway/config.d/00-base.conf
+include ~/.config/sway/config.d/05-session.conf
+include ~/.config/sway/config.d/10-desktop.conf
+include ~/.config/sway/config.d/15-remote-client.conf
+include ~/.config/sway/config.d/20-{{ .profile }}.conf
+include ~/.config/sway/local.d/*.conf

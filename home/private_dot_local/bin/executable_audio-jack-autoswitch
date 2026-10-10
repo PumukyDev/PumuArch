@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+"""Prefer local audio and switch automatically when the wired jack changes."""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import time
+from typing import Any
+
+
+CARD_NAME = "alsa_card.pci-0000_00_1f.3-platform-sof_sdw"
+HEADPHONE_PORT = "[Out] Headphones"
+HEADPHONE_PROFILE = "HiFi (HDMI1, HDMI2, HDMI3, Headphones, Headset, Mic)"
+SPEAKER_PROFILE = "HiFi (HDMI1, HDMI2, HDMI3, Headset, Mic, Speaker)"
+HEADPHONE_SINK = (
+    "alsa_output.pci-0000_00_1f.3-platform-sof_sdw.HiFi__Headphones__sink"
+)
+SPEAKER_SINK = (
+    "alsa_output.pci-0000_00_1f.3-platform-sof_sdw.HiFi__Speaker__sink"
+)
+
+
+def log(message: str) -> None:
+    print(message, flush=True)
+
+
+def run_command(*command: str) -> str:
+    result = subprocess.run(
+        command,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    return result.stdout.strip()
+
+
+def run_pactl(*arguments: str) -> str:
+    return run_command("pactl", *arguments)
+
+
+def pactl_json(*arguments: str) -> Any:
+    return json.loads(run_pactl("--format=json", *arguments))
+
+
+def get_card() -> dict[str, Any]:
+    for card in pactl_json("list", "cards"):
+        if card.get("name") == CARD_NAME:
+            return card
+    raise RuntimeError(f"Audio card is not available: {CARD_NAME}")
+
+
+def headphones_connected(card: dict[str, Any]) -> bool:
+    port = card.get("ports", {}).get(HEADPHONE_PORT, {})
+    return port.get("availability") == "available"
+
+
+def available_display_ports() -> frozenset[tuple[str, str]]:
+    available: set[tuple[str, str]] = set()
+    for card in pactl_json("list", "cards"):
+        card_name = card.get("name", "")
+        for port_name, port in card.get("ports", {}).items():
+            description = port.get("description", "")
+            display_name = f"{port_name} {description}".lower()
+            is_display = "hdmi" in display_name or "displayport" in display_name
+            if is_display and port.get("availability") == "available":
+                available.add((card_name, port_name))
+    return frozenset(available)
+
+
+def wait_for_sink(name: str, timeout: float = 5.0) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if any(sink.get("name") == name for sink in pactl_json("list", "sinks")):
+            return
+        time.sleep(0.1)
+    raise RuntimeError(f"Audio sink did not appear: {name}")
+
+
+def get_node_id(name: str) -> int:
+    for item in json.loads(run_command("pw-dump")):
+        properties = item.get("info", {}).get("props", {})
+        if (
+            item.get("type") == "PipeWire:Interface:Node"
+            and properties.get("node.name") == name
+        ):
+            return int(item["id"])
+    raise RuntimeError(f"PipeWire node did not appear: {name}")
+
+
+def apply_jack_state() -> None:
+    card = get_card()
+    connected = headphones_connected(card)
+    profile = HEADPHONE_PROFILE if connected else SPEAKER_PROFILE
+    sink = HEADPHONE_SINK if connected else SPEAKER_SINK
+    label = "Headphones" if connected else "Speaker"
+    changed = False
+
+    if card.get("active_profile") != profile:
+        run_pactl("set-card-profile", CARD_NAME, profile)
+        changed = True
+
+    wait_for_sink(sink)
+    if run_pactl("get-default-sink") != sink:
+        changed = True
+    run_command("wpctl", "set-default", str(get_node_id(sink)))
+
+    if changed:
+        log(f"Selected audio output: {label}")
+
+
+def subscribe() -> None:
+    last_connected = headphones_connected(get_card())
+    last_display_ports = available_display_ports()
+    process = subprocess.Popen(
+        ["pactl", "subscribe"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    assert process.stdout is not None
+    for line in process.stdout:
+        if " on card " not in line:
+            continue
+        time.sleep(0.15)
+        try:
+            connected = headphones_connected(get_card())
+            display_ports = available_display_ports()
+            display_connected = bool(display_ports - last_display_ports)
+            if connected != last_connected or display_connected:
+                if display_connected:
+                    time.sleep(0.35)
+                apply_jack_state()
+            last_connected = connected
+            last_display_ports = display_ports
+        except (json.JSONDecodeError, OSError, subprocess.SubprocessError, RuntimeError) as error:
+            log(f"Could not apply the audio jack state: {error}")
+
+    return_code = process.wait()
+    raise RuntimeError(f"pactl subscription ended with status {return_code}")
+
+
+def main() -> None:
+    while True:
+        try:
+            apply_jack_state()
+            subscribe()
+        except (json.JSONDecodeError, OSError, subprocess.SubprocessError, RuntimeError) as error:
+            log(f"Audio jack monitor is retrying: {error}")
+            time.sleep(1)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(0)

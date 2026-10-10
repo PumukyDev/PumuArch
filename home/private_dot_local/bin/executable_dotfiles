@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Small entry points around native chezmoi and Git commands.
+set -euo pipefail
+cm=$(command -v chezmoi || printf '%s' "$HOME/.local/bin/chezmoi")
+repo=$("$cm" execute-template '{{ .chezmoi.workingTree }}')
+case ${1:-status} in
+    status)
+        "$cm" status
+        git -C "$repo" status --short --branch
+        ;;
+    doctor)
+        python3 "$repo/scripts/bootstrap.py" --optional
+        if [[ -r $HOME/.config/sway/config ]] && command -v sway >/dev/null; then
+            sway -C -c "$HOME/.config/sway/config"
+        fi
+        ;;
+    update)
+        source_status=$(git -C "$repo" status --porcelain)
+        target_status=$("$cm" status)
+        if [[ -n $source_status || -n $target_status ]]; then
+            printf 'Review local source and target changes before updating. Run dotfiles status and chezmoi diff.\n' >&2
+            exit 1
+        fi
+        git -C "$repo" fetch origin
+        git -C "$repo" merge --ff-only '@{upstream}'
+        "$cm" diff --no-pager
+        printf '\nReview the diff, then run: chezmoi apply\n'
+        ;;
+    *)
+        printf 'Usage: dotfiles [status|doctor|update]\n' >&2
+        exit 2
+        ;;
+esac

@@ -1,0 +1,17 @@
+{{- $default := "server" -}}
+{{- if eq .chezmoi.osRelease.id "arch" -}}{{- $default = "arch" -}}{{- end -}}
+{{- if eq .chezmoi.osRelease.id "kali" -}}{{- $default = "kali" -}}{{- end -}}
+{{- $profile := promptChoiceOnce . "profile" "Profile" (list "arch" "kali" "server") $default -}}
+{{- $identity := get . "gitIdentity" | default (dict) -}}
+[data]
+profile = {{ $profile | quote }}
+displaySerials = {{ get . "displaySerials" | default (list "" "") | toJson }}
+archPreviewPath = {{ get . "archPreviewPath" | default "" | quote }}
+archWallpaperPath = {{ get . "archWallpaperPath" | default "" | quote }}
+lockScreenVideoPath = {{ get . "lockScreenVideoPath" | default "" | quote }}
+lockScreenWallpaperPath = {{ get . "lockScreenWallpaperPath" | default "" | quote }}
+
+[data.gitIdentity]
+name = {{ get $identity "name" | default "" | quote }}
+email = {{ get $identity "email" | default "" | quote }}
+signingkey = {{ get $identity "signingkey" | default "" | quote }}

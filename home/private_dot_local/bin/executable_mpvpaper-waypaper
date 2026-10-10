@@ -1,0 +1,349 @@
+#!/usr/bin/env python3
+"""Keep Waypaper's video wallpaper and Sway's startup preview in sync."""
+
+from __future__ import annotations
+
+import argparse
+import configparser
+import fcntl
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import socket
+import stat
+import subprocess
+import sys
+import tempfile
+import time
+
+
+HOME = Path.home()
+CONFIG_HOME = Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config"))
+STATE_HOME = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local/state"))
+RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"))
+CONFIG_PATH = CONFIG_HOME / "waypaper/config.ini"
+STATE_PATH = STATE_HOME / "waypaper/state.ini"
+PREVIEW_PATH = HOME / ".local/share/wallpapers/mpvpaper-first-frame.png"
+LOCK_PATH = RUNTIME_DIR / "mpvpaper-waypaper.lock"
+
+
+def fail(message: str) -> "NoReturn":
+    print(f"mpvpaper-waypaper: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def read_parser(path: Path) -> configparser.ConfigParser:
+    parser = configparser.ConfigParser(interpolation=None)
+    if not parser.read(path, encoding="utf-8"):
+        fail(f"could not read {path}")
+    return parser
+
+
+def split_lines(value: str) -> list[str]:
+    return [line.strip() for line in value.splitlines() if line.strip()]
+
+
+def read_settings() -> dict[str, object]:
+    parser = read_parser(CONFIG_PATH)
+    if not parser.has_section("Settings"):
+        fail(f"missing Settings section in {CONFIG_PATH}")
+
+    settings = parser["Settings"]
+    backend = settings.get("backend", "mpvpaper")
+    monitors = split_lines(settings.get("monitors", "All"))
+    wallpapers = split_lines(settings.get("wallpaper", ""))
+
+    if settings.getboolean("use_xdg_state", fallback=False) and STATE_PATH.exists():
+        state_parser = read_parser(STATE_PATH)
+        if state_parser.has_section("State"):
+            state_section = state_parser["State"]
+            backend = state_section.get("backend", backend)
+            monitors = split_lines(state_section.get("monitors", "\n".join(monitors)))
+            wallpapers = split_lines(state_section.get("wallpaper", "\n".join(wallpapers)))
+
+    if backend != "mpvpaper":
+        fail(f"Waypaper backend is {backend}, not mpvpaper")
+    if not monitors:
+        monitors = ["All"]
+    if len(monitors) != len(wallpapers):
+        fail("Waypaper monitor and wallpaper counts do not match")
+
+    return {
+        "monitors": monitors,
+        "wallpapers": [str(Path(path).expanduser().resolve()) for path in wallpapers],
+        "fill": settings.get("fill", "fill").lower(),
+        "color": settings.get("color", "#000000"),
+        "sound": settings.getboolean("mpvpaper_sound", fallback=False),
+        "options": settings.get("mpvpaper_options", "").strip(),
+    }
+
+
+def mappings(settings: dict[str, object]) -> list[tuple[str, str]]:
+    return list(zip(settings["monitors"], settings["wallpapers"], strict=True))
+
+
+def override_mapping(
+    settings: dict[str, object], wallpaper: str, monitor: str
+) -> dict[str, object]:
+    selected = str(Path(wallpaper).expanduser().resolve())
+    if monitor == "All":
+        settings["monitors"] = ["All"]
+        settings["wallpapers"] = [selected]
+        return settings
+
+    monitors = list(settings["monitors"])
+    wallpapers = list(settings["wallpapers"])
+    if "All" in monitors:
+        monitors = []
+        wallpapers = []
+    if monitor in monitors:
+        wallpapers[monitors.index(monitor)] = selected
+    else:
+        monitors.append(monitor)
+        wallpapers.append(selected)
+    settings["monitors"] = monitors
+    settings["wallpapers"] = wallpapers
+    return settings
+
+
+def create_preview(wallpaper: str) -> None:
+    source = Path(wallpaper).expanduser().resolve()
+    if not source.is_file():
+        fail(f"wallpaper does not exist: {source}")
+
+    PREVIEW_PATH.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary_name = tempfile.mkstemp(
+        prefix=".mpvpaper-first-frame-", suffix=".png", dir=PREVIEW_PATH.parent
+    )
+    os.close(fd)
+    temporary = Path(temporary_name)
+    try:
+        command = [
+            shutil.which("ffmpeg") or "/usr/bin/ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-nostdin",
+            "-y",
+            "-i",
+            str(source),
+            "-map",
+            "0:v:0",
+            "-frames:v",
+            "1",
+            str(temporary),
+        ]
+        result = subprocess.run(command, check=False)
+        if result.returncode != 0 or temporary.stat().st_size == 0:
+            fail(f"ffmpeg could not extract a frame from {source}")
+        temporary.chmod(0o644)
+        temporary.replace(PREVIEW_PATH)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def mpvpaper_pids() -> list[int]:
+    result = subprocess.run(
+        ["pgrep", "-x", "mpvpaper"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode not in (0, 1):
+        fail("could not inspect running mpvpaper processes")
+    return [int(value) for value in result.stdout.split()]
+
+
+def process_arguments(pid: int) -> list[str]:
+    try:
+        return Path(f"/proc/{pid}/cmdline").read_bytes().rstrip(b"\0").decode().split("\0")
+    except (FileNotFoundError, PermissionError, UnicodeDecodeError):
+        return []
+
+
+def is_bottom_process(pid: int, monitor: str | None = None) -> bool:
+    arguments = process_arguments(pid)
+    layer_is_bottom = "--layer=bottom" in arguments or any(
+        arguments[index : index + 2] == ["--layer", "bottom"]
+        for index in range(len(arguments) - 1)
+    )
+    if not layer_is_bottom:
+        return False
+    if monitor is None:
+        return True
+    socket_option = f"input-ipc-server=/tmp/mpv-socket-{monitor}"
+    return any(socket_option in argument for argument in arguments)
+
+
+def terminate_processes(pids: list[int]) -> None:
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+
+    deadline = time.monotonic() + 1.5
+    remaining = set(pids)
+    while remaining and time.monotonic() < deadline:
+        remaining = {pid for pid in remaining if Path(f"/proc/{pid}").exists()}
+        if remaining:
+            time.sleep(0.05)
+
+    for pid in remaining:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
+def remove_stale_socket(monitor: str) -> None:
+    path = Path(f"/tmp/mpv-socket-{monitor}")
+    try:
+        mode = path.lstat().st_mode
+    except FileNotFoundError:
+        return
+    if not stat.S_ISSOCK(mode):
+        fail(f"refusing to remove non-socket path {path}")
+    path.unlink()
+
+
+def mpv_options(settings: dict[str, object], monitor: str) -> str:
+    fill_options = {
+        "fill": "panscan=1.0",
+        "fit": "panscan=0.0",
+        "center": "",
+        "stretch": "keepaspect=no",
+        "tile": "",
+    }
+    fill = str(settings["fill"])
+    if fill not in fill_options:
+        fail(f"unsupported Waypaper fill mode: {fill}")
+
+    options = [
+        f"input-ipc-server=/tmp/mpv-socket-{monitor}",
+        str(settings["options"]),
+        "loop",
+        fill_options[fill],
+        # Let Sway's cached preview remain visible before the first decoded frame.
+        "background-color='#00000000'",
+    ]
+    if not settings["sound"]:
+        options.append("mute=yes")
+    return " ".join(option for option in options if option)
+
+
+def start_processes(settings: dict[str, object]) -> None:
+    executable = shutil.which("mpvpaper")
+    if not executable:
+        fail("mpvpaper is not installed")
+
+    for monitor, wallpaper in mappings(settings):
+        source = Path(wallpaper)
+        if not source.is_file():
+            fail(f"wallpaper does not exist: {source}")
+        remove_stale_socket(monitor)
+        output = "*" if monitor == "All" else monitor
+        command = [
+            executable,
+            "--fork",
+            "--layer",
+            "bottom",
+            "--mpv-options",
+            mpv_options(settings, monitor),
+            output,
+            str(source),
+        ]
+        result = subprocess.run(command, check=False)
+        if result.returncode != 0:
+            fail(f"mpvpaper failed to start for {monitor}")
+
+
+def ensure_processes(settings: dict[str, object]) -> None:
+    pids = mpvpaper_pids()
+    desired_monitors = [monitor for monitor, _ in mappings(settings)]
+    desired_are_running = all(
+        any(is_bottom_process(pid, monitor) for pid in pids)
+        for monitor in desired_monitors
+    )
+    all_are_managed = bool(pids) and all(is_bottom_process(pid) for pid in pids)
+    if desired_are_running and all_are_managed:
+        return
+    terminate_processes(pids)
+    start_processes(settings)
+
+
+def send_loadfile(monitor: str, wallpaper: str) -> bool:
+    socket_path = f"/tmp/mpv-socket-{monitor}"
+    request = json.dumps({"command": ["loadfile", wallpaper, "replace"]}).encode() + b"\n"
+    deadline = time.monotonic() + 2.0
+    while time.monotonic() < deadline:
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client.settimeout(0.5)
+        try:
+            client.connect(socket_path)
+            client.sendall(request)
+            response = b""
+            while b"\n" not in response:
+                chunk = client.recv(4096)
+                if not chunk:
+                    break
+                response += chunk
+            if not response:
+                return False
+            payload = json.loads(response.splitlines()[0])
+            return payload.get("error") == "success"
+        except (FileNotFoundError, ConnectionError, TimeoutError, OSError, json.JSONDecodeError):
+            time.sleep(0.05)
+        finally:
+            client.close()
+    return False
+
+
+def select_wallpaper(wallpaper: str, monitor: str) -> None:
+    settings = override_mapping(read_settings(), wallpaper, monitor)
+    pids = mpvpaper_pids()
+    managed_pid = next(
+        (pid for pid in pids if is_bottom_process(pid, monitor)),
+        None,
+    )
+    selected = str(Path(wallpaper).expanduser().resolve())
+    if managed_pid is not None and send_loadfile(monitor, selected):
+        pass
+    else:
+        terminate_processes(pids)
+        start_processes(settings)
+    create_preview(selected)
+
+
+def parse_arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Restore mpvpaper on the bottom layer and maintain its startup preview."
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers.add_parser("restore", help="restore the wallpaper selected in Waypaper")
+    preview = subparsers.add_parser("preview", help="update only the cached first frame")
+    preview.add_argument("wallpaper")
+    select = subparsers.add_parser("select", help="apply a Waypaper selection and update its preview")
+    select.add_argument("wallpaper")
+    select.add_argument("monitor", nargs="?", default="All")
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_arguments()
+    RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+    with LOCK_PATH.open("w", encoding="utf-8") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if args.command == "preview":
+            create_preview(args.wallpaper)
+        elif args.command == "restore":
+            ensure_processes(read_settings())
+        elif args.command == "select":
+            select_wallpaper(args.wallpaper, args.monitor)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

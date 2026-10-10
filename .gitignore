@@ -1,0 +1,15 @@
+*.swp
+*~
+__pycache__/
+*.pyc
+*.bak
+*.backup.*
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+*history*
+.local-data/
+validation-output/

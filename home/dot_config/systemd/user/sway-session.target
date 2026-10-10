@@ -1,0 +1,4 @@
+[Unit]
+Description=Sway Session Target
+Requires=graphical-session.target
+After=graphical-session.target

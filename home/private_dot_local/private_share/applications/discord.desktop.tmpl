@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Discord
+StartupWMClass=discord
+Comment=Discord with native Wayland screen sharing
+GenericName=Internet Messenger
+Exec={{ .chezmoi.homeDir }}/.local/bin/discord-wayland --url -- %u
+Icon=discord
+Type=Application
+Categories=Network;InstantMessaging;
+MimeType=x-scheme-handler/discord;
+Path=/usr/bin
+Terminal=false

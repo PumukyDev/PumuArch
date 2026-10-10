@@ -1,0 +1,20 @@
+[Unit]
+Description=Select each active display's highest advertised refresh rate
+Documentation=man:sway-output(5)
+PartOf=sway-session.target
+After=display-profiles.service
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/internal-display-refresh-rate-monitor
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+PrivateDevices=yes
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=%t
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=sway-session.target

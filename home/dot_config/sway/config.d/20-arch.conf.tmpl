@@ -1,0 +1,12 @@
+# Physical laptop settings; this file is never installed on Kali or servers.
+input type:touchpad {
+    tap enabled
+    tap_button_map lrm
+}
+{{ if .archPreviewPath }}output * bg {{ .archPreviewPath | quote }} fill
+{{ end }}{{ if .archWallpaperPath }}exec_always ~/.local/bin/mpvpaper-waypaper restore
+{{ end }}bindsym --no-repeat $mod+Shift+s exec ~/.local/bin/flameshot-active-screen
+bindsym --no-repeat $mod+Shift+d exec ~/.local/bin/flameshot-active-screen --laptop
+
+bindsym --locked XF86MonBrightnessUp exec dms ipc call brightness increment 5
+bindsym --locked XF86MonBrightnessDown exec dms ipc call brightness decrement 5

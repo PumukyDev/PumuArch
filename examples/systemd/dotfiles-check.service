@@ -1,0 +1,7 @@
+[Unit]
+Description=Fetch dotfiles updates for manual review
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/git -C %h/.local/share/chezmoi fetch --quiet origin
+ExecStart=/usr/bin/git -C %h/.local/share/chezmoi log --oneline HEAD..origin/main

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Copy the entire pane, including history, using the available transport.
+set -euo pipefail
+if [[ -n ${WAYLAND_DISPLAY:-} && -z ${SSH_CONNECTION:-} ]] && command -v wl-copy >/dev/null 2>&1; then
+    tmux capture-pane -p -S - | wl-copy
+else
+    # tmux sends OSC 52 to its attached terminal when the Ms capability is present.
+    tmux capture-pane -p -S - | tmux load-buffer -w -
+fi

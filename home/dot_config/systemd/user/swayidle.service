@@ -1,0 +1,17 @@
+[Unit]
+Description=Turn off displays and lock an idle Sway session
+Documentation=man:swayidle(1)
+PartOf=sway-session.target
+After=dms.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/swayidle -w
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=sway-session.target

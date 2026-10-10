@@ -1,0 +1,18 @@
+{{ if or .gitIdentity.name .gitIdentity.email .gitIdentity.signingkey -}}
+[user]
+{{ if .gitIdentity.name }}	name = {{ .gitIdentity.name | quote }}
+{{ end }}{{ if .gitIdentity.email }}	email = {{ .gitIdentity.email | quote }}
+{{ end }}{{ if .gitIdentity.signingkey }}	signingkey = {{ .gitIdentity.signingkey | quote }}
+{{ end }}{{ end -}}
+[init]
+	defaultBranch = main
+{{ if .gitIdentity.signingkey -}}
+[gpg]
+	format = ssh
+[commit]
+	gpgsign = true
+[tag]
+	gpgSign = true
+{{ end -}}
+[include]
+	path = ~/.config/git/local.conf

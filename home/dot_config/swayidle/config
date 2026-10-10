@@ -1,0 +1,3 @@
+# Protect the internal OLED panel and lock an unattended session.
+timeout 600 'swaymsg "output * power off"' resume 'swaymsg "output * power on"'
+timeout 660 'dms ipc call lock lock'

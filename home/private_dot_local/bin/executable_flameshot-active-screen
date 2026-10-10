@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+"""Edit an active external display, or select the laptop display explicitly."""
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+
+from PyQt6.QtGui import QGuiApplication
+
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--laptop", action="store_true", help="capture the laptop display")
+args = parser.parse_args()
+
+outputs = json.loads(subprocess.check_output(["swaymsg", "-t", "get_outputs"]))
+active_names = {output["name"] for output in outputs if output.get("active")}
+
+app = QGuiApplication([])
+screens = [
+    (index, screen.name())
+    for index, screen in enumerate(app.screens())
+    if screen.name() in active_names
+]
+laptop_prefixes = ("eDP-", "LVDS-", "DSI-")
+external = next((screen for screen in screens if not screen[1].startswith(laptop_prefixes)), None)
+laptop = next((screen for screen in screens if screen[1].startswith(laptop_prefixes)), None)
+selected = laptop if args.laptop else (external or laptop)
+
+if selected is None:
+    sys.exit("Requested Sway output is not available to Flameshot")
+
+screen_number, output_name = selected
+print(f"Capturing active Sway output {output_name} as Qt screen {screen_number}", file=sys.stderr)
+os.execvp("flameshot", ["flameshot", "screen", "--number", str(screen_number), "--edit"])

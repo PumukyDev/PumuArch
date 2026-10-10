@@ -1,0 +1,8 @@
+{{ if eq .profile "arch" -}}
+bind-key Y run-shell 'tmux capture-pane -p -S - | /usr/sbin/wl-copy'
+{{ else -}}
+# Advertise OSC 52 through outer tmux sessions as well as Kitty.
+set -as terminal-features ",tmux*:clipboard"
+set -ga update-environment " WAYLAND_DISPLAY XDG_RUNTIME_DIR SSH_CONNECTION"
+bind-key Y run-shell '"$HOME/.local/bin/tmux-copy-pane"'
+{{ end -}}

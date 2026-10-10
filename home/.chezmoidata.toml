@@ -1,0 +1,11 @@
+profile = "server"
+displaySerials = ["", ""]
+archPreviewPath = ""
+archWallpaperPath = ""
+lockScreenVideoPath = ""
+lockScreenWallpaperPath = ""
+
+[gitIdentity]
+name = ""
+email = ""
+signingkey = ""

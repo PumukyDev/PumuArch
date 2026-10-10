@@ -1,0 +1,16 @@
+# Portable DMS session unit for Kali.
+[Unit]
+Description=Dank Material Shell
+PartOf=sway-session.target
+After=graphical-session.target
+Requisite=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=org.freedesktop.Notifications
+ExecStart=/usr/bin/env dms run --session
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=sway-session.target

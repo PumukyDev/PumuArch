@@ -1,0 +1,426 @@
+#!/usr/bin/env python3
+"""Pause mpvpaper only when no active Sway output exposes the wallpaper."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import os
+import signal
+import socket
+import subprocess
+import threading
+import time
+from dataclasses import dataclass
+from typing import Any, Iterable
+
+
+LOG = logging.getLogger("mpvpaper-visibility")
+SWAY_EVENTS = '["window","workspace","output","bar_state_update","shutdown"]'
+
+
+@dataclass(frozen=True)
+class Rect:
+    x0: int
+    y0: int
+    x1: int
+    y1: int
+
+    @classmethod
+    def from_sway(cls, value: dict[str, Any] | None) -> "Rect | None":
+        if not value:
+            return None
+        try:
+            x = int(value["x"])
+            y = int(value["y"])
+            width = int(value["width"])
+            height = int(value["height"])
+        except (KeyError, TypeError, ValueError):
+            return None
+        if width <= 0 or height <= 0:
+            return None
+        return cls(x, y, x + width, y + height)
+
+    def intersect(self, other: "Rect") -> "Rect | None":
+        result = Rect(
+            max(self.x0, other.x0),
+            max(self.y0, other.y0),
+            min(self.x1, other.x1),
+            min(self.y1, other.y1),
+        )
+        if result.x0 >= result.x1 or result.y0 >= result.y1:
+            return None
+        return result
+
+
+def run_sway_query(message_type: str) -> Any:
+    result = subprocess.run(
+        ["swaymsg", "-r", "-t", message_type],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=3,
+    )
+    return json.loads(result.stdout)
+
+
+def walk_nodes(node: dict[str, Any]) -> Iterable[dict[str, Any]]:
+    yield node
+    for key in ("nodes", "floating_nodes"):
+        for child in node.get(key, []):
+            yield from walk_nodes(child)
+
+
+def is_view(node: dict[str, Any]) -> bool:
+    if node.get("type") != "con":
+        return False
+    return any(node.get(key) is not None for key in ("pid", "app_id", "window", "shell"))
+
+
+def visible_view_rects(workspace: dict[str, Any], bounds: Rect) -> list[Rect]:
+    result: list[Rect] = []
+    for node in walk_nodes(workspace):
+        if not is_view(node) or node.get("visible") is not True:
+            continue
+        rect = Rect.from_sway(node.get("rect"))
+        if rect is not None and (clipped := rect.intersect(bounds)) is not None:
+            result.append(clipped)
+    return result
+
+
+def fully_covered(bounds: Rect, rectangles: Iterable[Rect]) -> bool:
+    """Return whether axis-aligned rectangles cover every point in bounds."""
+    clipped = [part for rect in rectangles if (part := rect.intersect(bounds)) is not None]
+    if not clipped:
+        return False
+
+    x_points = sorted({bounds.x0, bounds.x1, *(r.x0 for r in clipped), *(r.x1 for r in clipped)})
+    for left, right in zip(x_points, x_points[1:]):
+        if left >= right or right <= bounds.x0 or left >= bounds.x1:
+            continue
+
+        intervals = sorted(
+            (rect.y0, rect.y1)
+            for rect in clipped
+            if rect.x0 <= left and rect.x1 >= right
+        )
+        covered_until = bounds.y0
+        for start, end in intervals:
+            if end <= covered_until:
+                continue
+            if start > covered_until:
+                return False
+            covered_until = max(covered_until, end)
+            if covered_until >= bounds.y1:
+                break
+        if covered_until < bounds.y1:
+            return False
+    return True
+
+
+class LogindLockMonitor:
+    def __init__(self, changed: threading.Event) -> None:
+        self.changed = changed
+        self.locked = False
+        self.available = False
+
+    def start(self) -> None:
+        threading.Thread(target=self._run, name="logind-monitor", daemon=True).start()
+
+    def _run(self) -> None:
+        try:
+            import dbus
+            from dbus.mainloop.glib import DBusGMainLoop
+            from gi.repository import GLib
+
+            DBusGMainLoop(set_as_default=True)
+            bus = dbus.SystemBus()
+            manager = dbus.Interface(
+                bus.get_object("org.freedesktop.login1", "/org/freedesktop/login1"),
+                "org.freedesktop.login1.Manager",
+            )
+            session_id = os.environ.get("XDG_SESSION_ID", "auto")
+            session_path = manager.GetSession(session_id)
+            session = bus.get_object("org.freedesktop.login1", session_path)
+            properties = dbus.Interface(session, dbus.PROPERTIES_IFACE)
+
+            self.locked = bool(properties.Get("org.freedesktop.login1.Session", "LockedHint"))
+            self.available = True
+            self.changed.set()
+
+            def properties_changed(interface: str, changed: dict[str, Any], invalidated: Any) -> None:
+                del invalidated
+                if interface != "org.freedesktop.login1.Session" or "LockedHint" not in changed:
+                    return
+                new_value = bool(changed["LockedHint"])
+                if new_value != self.locked:
+                    self.locked = new_value
+                    LOG.info("Session lock changed: %s", "locked" if new_value else "unlocked")
+                    self.changed.set()
+
+            bus.add_signal_receiver(
+                properties_changed,
+                signal_name="PropertiesChanged",
+                dbus_interface=dbus.PROPERTIES_IFACE,
+                path=session_path,
+            )
+            GLib.MainLoop().run()
+        except Exception:
+            LOG.exception("Could not monitor logind; Sway visibility detection remains active")
+
+
+class SwayEventMonitor:
+    def __init__(self, changed: threading.Event, stopped: threading.Event) -> None:
+        self.changed = changed
+        self.stopped = stopped
+        self.process: subprocess.Popen[str] | None = None
+
+    def start(self) -> None:
+        threading.Thread(target=self._run, name="sway-monitor", daemon=True).start()
+
+    def stop(self) -> None:
+        if self.process is not None and self.process.poll() is None:
+            self.process.terminate()
+
+    def _run(self) -> None:
+        while not self.stopped.is_set():
+            try:
+                self.process = subprocess.Popen(
+                    ["swaymsg", "-m", "-r", "-t", "subscribe", SWAY_EVENTS],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                    bufsize=1,
+                )
+                assert self.process.stdout is not None
+                for line in self.process.stdout:
+                    if self.stopped.is_set():
+                        return
+                    if not line.strip():
+                        continue
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        self.changed.set()
+                        continue
+                    # Terminal titles and urgency/mark metadata may change many
+                    # times per second but cannot reveal or cover the wallpaper.
+                    if event.get("change") in {"title", "urgent", "mark"}:
+                        continue
+                    self.changed.set()
+                return_code = self.process.wait()
+                if not self.stopped.is_set():
+                    LOG.warning("Sway event subscription ended with status %s; retrying", return_code)
+            except Exception:
+                if not self.stopped.is_set():
+                    LOG.exception("Sway event subscription failed; retrying")
+            self.stopped.wait(1)
+
+
+class MpvController:
+    def __init__(self, socket_path: str) -> None:
+        self.socket_path = socket_path
+        self.socket_identity: tuple[int, int] | None = None
+        self.owns_pause = False
+
+    def _identity(self) -> tuple[int, int] | None:
+        try:
+            stat = os.stat(self.socket_path)
+            return stat.st_dev, stat.st_ino
+        except FileNotFoundError:
+            return None
+
+    def _request(self, command: list[Any]) -> dict[str, Any]:
+        payload = json.dumps({"command": command, "request_id": 1}).encode() + b"\n"
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+            client.settimeout(1.5)
+            client.connect(self.socket_path)
+            client.sendall(payload)
+            response = b""
+            while b"\n" not in response:
+                part = client.recv(4096)
+                if not part:
+                    break
+                response += part
+        if not response:
+            raise RuntimeError("mpv returned an empty IPC response")
+        return json.loads(response.splitlines()[0])
+
+    def pause_state(self) -> bool:
+        response = self._request(["get_property", "pause"])
+        if response.get("error") != "success":
+            raise RuntimeError(f"mpv get_property failed: {response.get('error')}")
+        return bool(response.get("data"))
+
+    def set_pause(self, paused: bool) -> None:
+        response = self._request(["set_property", "pause", paused])
+        if response.get("error") != "success":
+            raise RuntimeError(f"mpv set_property failed: {response.get('error')}")
+
+    def apply(self, should_pause: bool, reason: str) -> None:
+        identity = self._identity()
+        if identity is None:
+            self.socket_identity = None
+            self.owns_pause = False
+            raise FileNotFoundError(self.socket_path)
+        if identity != self.socket_identity:
+            self.socket_identity = identity
+            self.owns_pause = False
+            LOG.info("Connected to a new mpvpaper IPC socket")
+
+        paused = self.pause_state()
+        if should_pause:
+            if not paused:
+                self.set_pause(True)
+                self.owns_pause = True
+                LOG.info("Paused mpvpaper: %s", reason)
+        elif self.owns_pause:
+            if paused:
+                self.set_pause(False)
+            self.owns_pause = False
+            LOG.info("Resumed mpvpaper: %s", reason)
+
+    def release(self) -> None:
+        if not self.owns_pause:
+            return
+        try:
+            if self._identity() == self.socket_identity and self.pause_state():
+                self.set_pause(False)
+                LOG.info("Released the automatic pause before stopping")
+        except Exception:
+            LOG.debug("Could not release the automatic pause", exc_info=True)
+        self.owns_pause = False
+
+
+def desired_pause(locked: bool) -> tuple[bool, str]:
+    if locked:
+        return True, "session is locked"
+
+    outputs = run_sway_query("get_outputs")
+    tree = run_sway_query("get_tree")
+    workspaces: dict[tuple[str, str], dict[str, Any]] = {}
+    for node in walk_nodes(tree):
+        if node.get("type") == "workspace" and node.get("output") is not None:
+            workspaces[(str(node["output"]), str(node.get("name", "")))] = node
+
+    active_outputs = [
+        output
+        for output in outputs
+        if output.get("active") is True and output.get("power", True) is not False
+    ]
+    if not active_outputs:
+        return True, "there are no active, powered outputs"
+
+    exposed: list[str] = []
+    covered: list[str] = []
+    for output in active_outputs:
+        name = str(output.get("name", "unknown"))
+        workspace_name = output.get("current_workspace")
+        workspace = workspaces.get((name, str(workspace_name))) if workspace_name is not None else None
+        bounds = Rect.from_sway(workspace.get("rect")) if workspace is not None else None
+        if workspace is None or bounds is None:
+            # If Sway cannot describe an output, keep playback active rather than hiding a visible wallpaper.
+            exposed.append(name)
+            continue
+        if fully_covered(bounds, visible_view_rects(workspace, bounds)):
+            covered.append(name)
+        else:
+            exposed.append(name)
+
+    if exposed:
+        return False, f"wallpaper is visible on {', '.join(exposed)}"
+    return True, f"all active outputs are covered ({', '.join(covered)})"
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--socket", default="/tmp/mpv-socket-All", help="mpv JSON IPC socket")
+    parser.add_argument("--once", action="store_true", help="evaluate once and exit")
+    parser.add_argument("--dry-run", action="store_true", help="report the decision without controlling mpv")
+    parser.add_argument("--verbose", action="store_true")
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(levelname)s %(message)s",
+    )
+
+    changed = threading.Event()
+    stopped = threading.Event()
+    lock_monitor = LogindLockMonitor(changed)
+    lock_monitor.start()
+
+    if args.once:
+        time.sleep(0.1)
+        pause, reason = desired_pause(lock_monitor.locked)
+        print(json.dumps({"pause": pause, "reason": reason}))
+        if not args.dry_run:
+            MpvController(args.socket).apply(pause, reason)
+        return 0
+
+    sway_monitor = SwayEventMonitor(changed, stopped)
+    controller = MpvController(args.socket)
+    sway_monitor.start()
+
+    def stop_handler(signum: int, frame: Any) -> None:
+        del signum, frame
+        stopped.set()
+        changed.set()
+
+    signal.signal(signal.SIGTERM, stop_handler)
+    signal.signal(signal.SIGINT, stop_handler)
+
+    current_decision: tuple[bool, str] | None = None
+    retry_after = 0.0
+    last_control_warning = 0.0
+    changed.set()
+    try:
+        while not stopped.is_set():
+            was_changed = changed.wait(timeout=5)
+            changed.clear()
+            if stopped.is_set():
+                break
+
+            if was_changed or current_decision is None:
+                # Coalesce the event burst generated while Sway rearranges its tree.
+                time.sleep(0.08)
+                changed.clear()
+                try:
+                    current_decision = desired_pause(lock_monitor.locked)
+                    LOG.debug("Visibility decision: pause=%s (%s)", *current_decision)
+                except Exception:
+                    if stopped.is_set():
+                        break
+                    LOG.exception("Could not determine Sway visibility; keeping the previous state")
+                    continue
+
+            if args.dry_run or current_decision is None:
+                continue
+            now = time.monotonic()
+            if now < retry_after:
+                continue
+            try:
+                controller.apply(*current_decision)
+                retry_after = 0.0
+            except FileNotFoundError:
+                retry_after = now + 1.0
+                LOG.debug("Waiting for mpvpaper socket %s", args.socket)
+            except (ConnectionError, TimeoutError, OSError, RuntimeError, json.JSONDecodeError):
+                retry_after = now + 1.0
+                if now - last_control_warning >= 10.0:
+                    LOG.warning("Could not control mpvpaper; will retry", exc_info=args.verbose)
+                    last_control_warning = now
+    finally:
+        stopped.set()
+        sway_monitor.stop()
+        controller.release()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

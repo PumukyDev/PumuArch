@@ -1,0 +1,80 @@
+# Automatic display profiles. More specific profiles take priority over
+# "generic-external", which provides a safe layout for unknown displays.
+
+[[profile]]
+name = "treadmill-lg-ultragear"
+exec = ["notify-send -a shikane 'Displays' 'Treadmill profile: external display above the laptop display'"]
+
+    [[profile.output]]
+    search = "n=eDP-1"
+    enable = true
+    mode = "2880x1800@60Hz"
+    position = "240,1080"
+    scale = 2.0
+    transform = "normal"
+    adaptive_sync = false
+
+    [[profile.output]]
+    search = ["v=LG Electronics", "m=LG ULTRAGEAR", "s={{ index .displaySerials 0 }}"]
+    enable = true
+    mode = "1920x1080@143.999Hz"
+    position = "0,0"
+    scale = 1.0
+    transform = "normal"
+    adaptive_sync = false
+
+[[profile]]
+name = "laptop-only"
+exec = ["notify-send -a shikane 'Displays' 'Laptop-only profile applied'"]
+
+    [[profile.output]]
+    search = "n=eDP-1"
+    enable = true
+    mode = "2880x1800@60Hz"
+    position = "0,0"
+    scale = 2.0
+    transform = "normal"
+    adaptive_sync = false
+
+[[profile]]
+name = "generic-external"
+exec = ["notify-send -a shikane 'Displays' 'New display: laptop on the left and external display on the right'"]
+
+    [[profile.output]]
+    search = "n=eDP-1"
+    enable = true
+    mode = "2880x1800@60Hz"
+    position = "0,0"
+    scale = 2.0
+    transform = "normal"
+    adaptive_sync = false
+
+    [[profile.output]]
+    search = "n/^(HDMI|DP)-"
+    enable = true
+    mode = "preferred"
+    position = "1440,0"
+    scale = 1.0
+    transform = "normal"
+    adaptive_sync = false
+
+[[profile]]
+name = "desk-lg-ultrawide"
+
+[[profile.output]]
+enable = true
+search = ["m=ATNA40HQ01-0 ", "s=", "v=Samsung Display Corp."]
+mode = "2880x1800@60Hz"
+position = "0,0"
+scale = 2.0
+transform = "normal"
+adaptive_sync = false
+
+[[profile.output]]
+enable = true
+search = ["m=LG ULTRAWIDE", "s={{ index .displaySerials 1 }}", "v=LG Electronics"]
+mode = "2560x1080@100Hz"
+position = "1440,0"
+scale = 1.0
+transform = "normal"
+adaptive_sync = false

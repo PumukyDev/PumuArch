@@ -1,0 +1,29 @@
+#!/bin/sh
+
+# Make the graphical session explicit. This is needed when the launcher is
+# called by Sway or DMS instead of from an already-configured terminal.
+uid=$(id -u)
+: "${XDG_RUNTIME_DIR:=/run/user/$uid}"
+: "${XDG_SESSION_TYPE:=wayland}"
+: "${XDG_CURRENT_DESKTOP:=sway}"
+: "${DISPLAY:=:0}"
+: "${DBUS_SESSION_BUS_ADDRESS:=unix:path=$XDG_RUNTIME_DIR/bus}"
+
+if [ -z "${WAYLAND_DISPLAY:-}" ]; then
+  for socket in "$XDG_RUNTIME_DIR"/wayland-*; do
+    if [ -S "$socket" ]; then
+      WAYLAND_DISPLAY=${socket##*/}
+      break
+    fi
+  done
+fi
+
+export XDG_RUNTIME_DIR XDG_SESSION_TYPE XDG_CURRENT_DESKTOP
+export DISPLAY DBUS_SESSION_BUS_ADDRESS WAYLAND_DISPLAY
+
+# Discord defaults to XWayland on Linux. Force the native Wayland/PipeWire
+# path so Sway can provide real windows and outputs to screen sharing.
+exec /usr/bin/discord \
+  --ozone-platform=wayland \
+  --enable-features=UseOzonePlatform,WebRTCPipeWireCapturer \
+  "$@"

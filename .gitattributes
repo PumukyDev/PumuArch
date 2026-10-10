@@ -1,0 +1,2 @@
+# Preserve the exact original tmux bytes, including its final empty line.
+home/dot_config/tmux/tmux.conf whitespace=-blank-at-eof

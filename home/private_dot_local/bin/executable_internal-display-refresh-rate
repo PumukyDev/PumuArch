@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""Select the highest advertised refresh at each active Sway output's resolution."""
+
+import fcntl
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+
+def log(message):
+    print(message, flush=True)
+
+
+def outputs():
+    result = subprocess.run(
+        ["swaymsg", "-t", "get_outputs", "-r"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return {output["name"]: output for output in json.loads(result.stdout)}
+
+
+def hz(refresh):
+    return f"{refresh / 1000:.3f}"
+
+
+def set_mode(name, mode):
+    command = [
+        "swaymsg", "-r", "--", "output", name, "mode",
+        f"{mode['width']}x{mode['height']}@{hz(mode['refresh'])}Hz",
+    ]
+    result = subprocess.run(command, capture_output=True, text=True)
+    try:
+        replies = json.loads(result.stdout)
+        accepted = result.returncode == 0 and bool(replies) and all(
+            reply.get("success") is True for reply in replies
+        )
+    except (ValueError, AttributeError):
+        accepted = False
+    if not accepted:
+        log(f"Sway rejected {name} mode {command[-1]}: {result.stdout.strip()} {result.stderr.strip()}")
+    return accepted
+
+
+def layout(output):
+    return (
+        output.get("active"),
+        output.get("scale"),
+        output.get("transform"),
+        output.get("rect"),
+        output.get("current_mode", {}).get("width"),
+        output.get("current_mode", {}).get("height"),
+    )
+
+
+def apply_one(name):
+    before = outputs()
+    output = before.get(name)
+    if not output or not output.get("active") or not output.get("current_mode"):
+        return True
+
+    current = output["current_mode"]
+    width, height = current["width"], current["height"]
+    modes = [
+        mode for mode in output.get("modes", [])
+        if mode.get("width") == width and mode.get("height") == height
+        and isinstance(mode.get("refresh"), int) and mode["refresh"] > 0
+    ]
+    if not modes:
+        log(f"{name}: no advertised modes at current resolution {width}x{height}; leaving it unchanged")
+        return True
+
+    selected = max(modes, key=lambda mode: mode["refresh"])
+    rates = ", ".join(hz(refresh) for refresh in sorted({mode["refresh"] for mode in modes}))
+    log(f"{name}: {width}x{height}; advertised Hz: {rates}; selected {hz(selected['refresh'])} Hz")
+    if current["refresh"] == selected["refresh"]:
+        return True
+
+    original_advertised = any(
+        mode["refresh"] == current["refresh"] for mode in modes
+    )
+    if not original_advertised:
+        log(f"{name}: current mode is not advertised; leaving it unchanged to preserve a safe fallback")
+        return False
+
+    accepted = set_mode(name, selected)
+    if accepted:
+        time.sleep(0.25)
+        after = outputs()
+        accepted = all(
+            other_name in after and layout(after[other_name]) == layout(other)
+            for other_name, other in before.items() if other.get("active")
+        ) and after.get(name, {}).get("current_mode", {}).get("refresh") == selected["refresh"]
+
+    if not accepted:
+        log(f"{name}: mode verification failed; restoring {hz(current['refresh'])} Hz")
+        if not set_mode(name, current):
+            log(f"{name}: rollback failed; check the display immediately")
+        return False
+
+    log(f"{name}: verified {hz(selected['refresh'])} Hz with resolution and layout preserved")
+    return True
+
+
+def main():
+    runtime_dir = os.environ.get("XDG_RUNTIME_DIR")
+    if not runtime_dir:
+        raise RuntimeError("XDG_RUNTIME_DIR is not set")
+    with Path(runtime_dir, "internal-display-refresh-rate.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        active_names = [
+            name for name, output in outputs().items() if output.get("active")
+        ]
+        results = [apply_one(name) for name in active_names]
+        return 0 if all(results) else 1
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:
+        log(f"Could not select advertised display refresh rates: {error}")
+        sys.exit(1)

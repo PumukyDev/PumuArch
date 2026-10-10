@@ -1,0 +1,55 @@
+"$schema" = "https://starship.rs/config-schema.json"
+
+# Keep the prompt compact and on the same line as the command.
+add_newline = false
+format = "$username$hostname$directory$git_branch$git_state$git_status$cmd_duration$character"
+palette = "dank"
+
+[palettes.dank]
+foreground = "#e6e0e9"
+muted = "#9d99a5"
+lavender = "#d0bcff"
+green = "#7fff9a"
+blue = "#82b1ff"
+yellow = "#ffda72"
+red = "#ff728f"
+
+[username]
+style_user = "bold lavender"
+style_root = "bold red"
+format = "[$user]($style)@"
+
+[hostname]
+style = "bold lavender"
+format = "[$hostname]($style) "
+
+[directory]
+style = "bold lavender"
+truncation_length = 4
+truncate_to_repo = false
+truncation_symbol = "…/"
+
+[git_branch]
+symbol = " "
+style = "bold lavender"
+format = "[$symbol$branch(:$remote_branch)]($style) "
+
+[git_state]
+style = "bold yellow"
+format = "[$state( $progress_current/$progress_total)]($style) "
+
+[git_status]
+style = "bold yellow"
+format = "([\\[$all_status$ahead_behind\\]]($style) )"
+
+[cmd_duration]
+min_time = 2000
+style = "muted"
+format = "took [$duration]($style) "
+
+[character]
+success_symbol = "[❯](bold blue)"
+error_symbol = "[❯](bold red)"
+
+[line_break]
+disabled = true

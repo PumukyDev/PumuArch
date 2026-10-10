@@ -1,0 +1,45 @@
+{{ if not (has .profile (list "arch" "kali" "server")) }}{{ fail "Invalid profile: use arch, kali, or server" }}{{ end }}
+{{ if ne .profile "arch" }}
+.config/shikane
+.config/waypaper
+.config/swayidle
+.config/wireplumber
+.config/systemd/user/audio-jack-autoswitch.service
+.config/systemd/user/default.target.wants
+.config/systemd/user/display-profiles.service
+.config/systemd/user/internal-display-refresh-rate.service
+.config/systemd/user/mpvpaper-visibility.service
+.config/systemd/user/swayidle.service
+.config/systemd/user/sway-session.target.wants/display-profiles.service
+.config/systemd/user/sway-session.target.wants/internal-display-refresh-rate.service
+.config/systemd/user/sway-session.target.wants/mpvpaper-visibility.service
+.config/systemd/user/sway-session.target.wants/swayidle.service
+.local/share/applications/display-profiles.desktop
+.local/bin/mpvpaper-waypaper
+.local/bin/mpvpaper-visibility
+.local/bin/save-display-profile
+.local/bin/manage-display-profiles
+.local/bin/audio-jack-autoswitch
+.local/bin/internal-display-refresh-rate
+.local/bin/internal-display-refresh-rate-monitor
+.local/bin/flameshot-active-screen
+.config/sway/config.d/20-arch.conf
+{{ end }}
+{{ if ne .profile "kali" }}
+.config/sway/config.d/20-kali.conf
+.config/systemd/user/dms.service
+{{ end }}
+{{ if eq .profile "server" }}
+.config/sway
+.config/kitty
+.config/foot
+.config/gtk-3.0
+.config/gtk-4.0
+.config/qt6ct
+.config/flameshot
+.config/DankMaterialShell
+.config/environment.d
+.config/systemd
+.local/share/applications
+.local/bin/discord-wayland
+{{ end }}

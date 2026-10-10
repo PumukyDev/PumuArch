@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -u
+
+printf '%s\n' \
+    'Arrange the displays in the graphical window and select Apply.' \
+    'After closing the window, you can save the result as an automatic profile.' \
+    ''
+
+wdisplays
+
+printf '\nProfile name (or press Enter to skip): '
+IFS= read -r profile_name
+if [[ -n $profile_name ]]; then
+    if "${HOME}/.local/bin/save-display-profile" "$profile_name"; then
+        notify-send -a shikane 'Displays' "Profile '$profile_name' saved"
+    else
+        printf '\nThe profile could not be saved. Check the previous message.\n'
+    fi
+else
+    printf 'No profile was saved.\n'
+fi
+
+printf '\nPress Enter to close.'
+IFS= read -r _
